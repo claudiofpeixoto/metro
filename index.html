@@ -63,10 +63,11 @@
     <script>
         let audioContext = new (window.AudioContext || window.webkitAudioContext)();
         let isPlaying = false;
-        let intervalId = null;
         let currentStep = 0;
         let currentBPM = 0;
         let beatCount = 0;
+        let nextBeatTime = 0;
+        let schedulerId = null;
 
         function playClick(isFirstBeat) {
             const osc = audioContext.createOscillator();
@@ -80,7 +81,6 @@
             
             const now = audioContext.currentTime;
             osc.start(now);
-            
             gain.gain.setValueAtTime(1, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
             osc.stop(now + 0.05);
@@ -92,6 +92,22 @@
             return bpm1 + (increment * currentStep);
         }
 
+        function scheduleBeat() {
+            while (nextBeatTime < audioContext.currentTime + 0.1) {
+                playClick(beatCount === 0);
+                const interval = 60 / currentBPM;
+                nextBeatTime += interval;
+                beatCount = (beatCount + 1) % parseInt(document.getElementById('timeSignature').value);
+            }
+        }
+
+        function scheduler() {
+            if (isPlaying) {
+                scheduleBeat();
+                schedulerId = requestAnimationFrame(scheduler);
+            }
+        }
+
         function startMetronome() {
             if (isPlaying) return;
 
@@ -99,12 +115,12 @@
             const bpm2 = parseInt(document.getElementById('bpm2').value);
             const steps = parseInt(document.getElementById('steps').value);
             const stepTime = parseInt(document.getElementById('stepTime').value) * 1000;
-            const timeSignature = parseInt(document.getElementById('timeSignature').value);
 
             isPlaying = true;
             currentStep = 0;
             beatCount = 0;
-            
+            nextBeatTime = audioContext.currentTime;
+
             function updateMetronome() {
                 if (currentStep >= steps) {
                     currentStep = 0;
@@ -112,14 +128,10 @@
 
                 currentBPM = calculateBPM(bpm1, bpm2, steps, currentStep);
                 document.getElementById('currentBPM').textContent = Math.round(currentBPM);
-                
-                const interval = 60000 / currentBPM;
 
-                if (intervalId) clearInterval(intervalId);
-                intervalId = setInterval(() => {
-                    playClick(beatCount === 0);
-                    beatCount = (beatCount + 1) % timeSignature;
-                }, interval);
+                if (currentStep === 0) {
+                    nextBeatTime = audioContext.currentTime; // Reseta o tempo na transição
+                }
 
                 setTimeout(() => {
                     if (isPlaying) {
@@ -129,14 +141,15 @@
                 }, stepTime);
             }
 
+            schedulerId = requestAnimationFrame(scheduler);
             updateMetronome();
         }
 
         function stopMetronome() {
             isPlaying = false;
-            if (intervalId) {
-                clearInterval(intervalId);
-                intervalId = null;
+            if (schedulerId) {
+                cancelAnimationFrame(schedulerId);
+                schedulerId = null;
             }
             document.getElementById('currentBPM').textContent = '0';
             beatCount = 0;
