@@ -44,6 +44,14 @@
     </div>
     
     <div class="controls">
+        <label>Compasso (batidas): </label>
+        <select id="timeSignature">
+            <option value="4">4 batidas (4/4)</option>
+            <option value="6">6 batidas (6/8)</option>
+        </select>
+    </div>
+    
+    <div class="controls">
         <button onclick="startMetronome()">Iniciar</button>
         <button onclick="stopMetronome()">Parar</button>
     </div>
@@ -52,88 +60,87 @@
         <p>BPM Atual: <span id="currentBPM">0</span></p>
     </div>
 
-<script>
-    let audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    let isPlaying = false;
-    let intervalId = null;
-    let currentStep = 0;
-    let currentBPM = 0;
-    let beatCount = 0;
+    <script>
+        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let isPlaying = false;
+        let intervalId = null;
+        let currentStep = 0;
+        let currentBPM = 0;
+        let beatCount = 0;
 
-    function playClick(isFirstBeat) {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        
-        // Som diferente para primeira batida do compasso
-        osc.frequency.value = isFirstBeat ? 800 : 1000; // 800Hz para "tock", 1000Hz para "tick"
-        gain.gain.value = 1;
-        
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        
-        const now = audioContext.currentTime;
-        osc.start(now);
-        
-        // Envelope para um som mais natural
-        gain.gain.setValueAtTime(1, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        osc.stop(now + 0.05);
-    }
+        function playClick(isFirstBeat) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.frequency.value = isFirstBeat ? 800 : 1000;
+            gain.gain.value = 1;
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            const now = audioContext.currentTime;
+            osc.start(now);
+            
+            gain.gain.setValueAtTime(1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.stop(now + 0.05);
+        }
 
-    function calculateBPM(bpm1, bpm2, steps, currentStep) {
-        const difference = bpm2 - bpm1;
-        const increment = difference / (steps - 1);
-        return bpm1 + (increment * currentStep);
-    }
+        function calculateBPM(bpm1, bpm2, steps, currentStep) {
+            const difference = bpm2 - bpm1;
+            const increment = difference / (steps - 1);
+            return bpm1 + (increment * currentStep);
+        }
 
-    function startMetronome() {
-        if (isPlaying) return;
+        function startMetronome() {
+            if (isPlaying) return;
 
-        const bpm1 = parseInt(document.getElementById('bpm1').value);
-        const bpm2 = parseInt(document.getElementById('bpm2').value);
-        const steps = parseInt(document.getElementById('steps').value);
-        const stepTime = parseInt(document.getElementById('stepTime').value) * 1000;
+            const bpm1 = parseInt(document.getElementById('bpm1').value);
+            const bpm2 = parseInt(document.getElementById('bpm2').value);
+            const steps = parseInt(document.getElementById('steps').value);
+            const stepTime = parseInt(document.getElementById('stepTime').value) * 1000;
+            const timeSignature = parseInt(document.getElementById('timeSignature').value);
 
-        isPlaying = true;
-        currentStep = 0;
-        beatCount = 0;
-        
-        function updateMetronome() {
-            if (currentStep >= steps) {
-                currentStep = 0; // Reinicia o ciclo
+            isPlaying = true;
+            currentStep = 0;
+            beatCount = 0;
+            
+            function updateMetronome() {
+                if (currentStep >= steps) {
+                    currentStep = 0;
+                }
+
+                currentBPM = calculateBPM(bpm1, bpm2, steps, currentStep);
+                document.getElementById('currentBPM').textContent = Math.round(currentBPM);
+                
+                const interval = 60000 / currentBPM;
+
+                if (intervalId) clearInterval(intervalId);
+                intervalId = setInterval(() => {
+                    playClick(beatCount === 0);
+                    beatCount = (beatCount + 1) % timeSignature;
+                }, interval);
+
+                setTimeout(() => {
+                    if (isPlaying) {
+                        currentStep++;
+                        updateMetronome();
+                    }
+                }, stepTime);
             }
 
-            currentBPM = calculateBPM(bpm1, bpm2, steps, currentStep);
-            document.getElementById('currentBPM').textContent = Math.round(currentBPM);
-            
-            const interval = 60000 / currentBPM;
-
-            if (intervalId) clearInterval(intervalId);
-            intervalId = setInterval(() => {
-                playClick(beatCount === 0);
-                beatCount = (beatCount + 1) % 4; // Considera compasso 4/4
-            }, interval);
-
-            setTimeout(() => {
-                if (isPlaying) {
-                    currentStep++;
-                    updateMetronome();
-                }
-            }, stepTime);
+            updateMetronome();
         }
 
-        updateMetronome();
-    }
-
-    function stopMetronome() {
-        isPlaying = false;
-        if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
+        function stopMetronome() {
+            isPlaying = false;
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            document.getElementById('currentBPM').textContent = '0';
+            beatCount = 0;
         }
-        document.getElementById('currentBPM').textContent = '0';
-        beatCount = 0;
-    }
-</script>
+    </script>
 </body>
 </html>
