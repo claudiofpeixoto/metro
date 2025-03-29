@@ -3,120 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Metrônomo com Transição Suave</title>
+    <title>Metrônomo Variável</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-        }
-        .metronome {
-            text-align: center;
+            max-width: 600px;
+            margin: 20px auto;
             padding: 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin: 10px 0;
         }
         button {
             padding: 10px 20px;
             margin: 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        input {
-            width: 80px;
-            padding: 5px;
-            font-size: 16px;
-            margin: 5px;
-        }
-        #beat {
-            width: 50px;
-            height: 50px;
-            margin: 10px auto;
-            transition: background-color 0.1s; /* Suaviza a mudança de cor */
         }
     </style>
 </head>
 <body>
-    <div class="metronome">
-        <h1>Metrônomo</h1>
-        <label for="bpm1">BPM 1:</label>
-        <input type="number" id="bpm1" value="120" min="20" max="300">
-        <br>
-        <label for="bpm2">BPM 2:</label>
-        <input type="number" id="bpm2" value="80" min="20" max="300">
-        <br>
+    <h1>Metrônomo Variável</h1>
+    
+    <div class="controls">
+        <label>BPM Inicial: </label>
+        <input type="number" id="bpm1" value="60" min="20" max="300">
+    </div>
+    
+    <div class="controls">
+        <label>BPM Final: </label>
+        <input type="number" id="bpm2" value="120" min="20" max="300">
+    </div>
+    
+    <div class="controls">
+        <label>Número de Passos: </label>
+        <input type="number" id="steps" value="10" min="1" max="50">
+    </div>
+    
+    <div class="controls">
+        <label>Tempo por Passo (segundos): </label>
+        <input type="number" id="stepTime" value="5" min="1" max="60">
+    </div>
+    
+    <div class="controls">
         <button onclick="startMetronome()">Iniciar</button>
         <button onclick="stopMetronome()">Parar</button>
-        <div id="beat" style="background: grey;"></div>
+    </div>
+    
+    <div>
+        <p>BPM Atual: <span id="currentBPM">0</span></p>
     </div>
 
     <script>
+        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
         let isPlaying = false;
         let intervalId = null;
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        let currentInterval = 0;
-        let targetInterval1, targetInterval2;
-        const transitionSteps = 5; // Número de batidas para transição suave
-        let stepCount = 0;
-        let transitioningToBPM2 = false;
+        let currentStep = 0;
+        let currentBPM = 0;
 
         function playClick() {
-            const oscillator = audioContext.createOscillator();
-            oscillator.type = 'square';
-            oscillator.frequency.value = 1000;
-            oscillator.connect(audioContext.destination);
-            oscillator.start();
-            oscillator.stop(audioContext.currentTime + 0.05);
+            const osc = audioContext.createOscillator();
+            osc.frequency.value = 1000;
+            osc.connect(audioContext.destination);
+            osc.start();
+            osc.stop(audioContext.currentTime + 0.1);
+        }
 
-            const beat = document.getElementById('beat');
-            beat.style.background = transitioningToBPM2 ? 'blue' : 'red'; // Vermelho para BPM1, Azul para BPM2
-            setTimeout(() => beat.style.background = 'grey', 50);
+        function calculateBPM(bpm1, bpm2, steps, currentStep) {
+            const difference = bpm2 - bpm1;
+            const increment = difference / (steps - 1);
+            return bpm1 + (increment * currentStep);
         }
 
         function startMetronome() {
             if (isPlaying) return;
-            isPlaying = true;
+
             const bpm1 = parseInt(document.getElementById('bpm1').value);
             const bpm2 = parseInt(document.getElementById('bpm2').value);
-            targetInterval1 = 60000 / bpm1; // Intervalo do BPM1
-            targetInterval2 = 60000 / bpm2; // Intervalo do BPM2
-            currentInterval = targetInterval1; // Começa no BPM1
-            transitioningToBPM2 = false;
-            stepCount = 0;
-            scheduleNextBeat();
-        }
+            const steps = parseInt(document.getElementById('steps').value);
+            const stepTime = parseInt(document.getElementById('stepTime').value) * 1000;
 
-        function scheduleNextBeat() {
-            if (!isPlaying) return;
+            isPlaying = true;
+            currentStep = 0;
+            
+            function updateMetronome() {
+                if (currentStep >= steps) {
+                    currentStep = 0; // Reinicia o ciclo
+                }
 
-            playClick();
+                currentBPM = calculateBPM(bpm1, bpm2, steps, currentStep);
+                document.getElementById('currentBPM').textContent = Math.round(currentBPM);
+                
+                // Calcula o intervalo em milissegundos baseado no BPM atual
+                const interval = 60000 / currentBPM;
 
-            // Calcula a transição suave
-            if (stepCount < transitionSteps) {
-                const diff = (targetInterval2 - targetInterval1) / transitionSteps;
-                currentInterval = transitioningToBPM2 
-                    ? targetInterval1 + diff * (transitionSteps - stepCount) 
-                    : targetInterval1 + diff * stepCount;
-                stepCount++;
-            } else {
-                // Finaliza a transição e alterna o alvo
-                currentInterval = transitioningToBPM2 ? targetInterval2 : targetInterval1;
-                transitioningToBPM2 = !transitioningToBPM2;
-                stepCount = 0; // Reinicia para a próxima transição
+                // Toca o clique no intervalo atual
+                if (intervalId) clearInterval(intervalId);
+                intervalId = setInterval(playClick, interval);
+
+                // Agenda a próxima transição
+                setTimeout(() => {
+                    if (isPlaying) {
+                        currentStep++;
+                        updateMetronome();
+                    }
+                }, stepTime);
             }
 
-            intervalId = setTimeout(scheduleNextBeat, currentInterval);
+            updateMetronome();
         }
 
         function stopMetronome() {
-            if (!isPlaying) return;
-            clearTimeout(intervalId);
             isPlaying = false;
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            document.getElementById('currentBPM').textContent = '0';
         }
     </script>
 </body>
