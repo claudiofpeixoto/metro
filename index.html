@@ -21,16 +21,16 @@
     </style>
 </head>
 <body>
-    <h1>Metrônomo Variável 5</h1>
+    <h1>Metrônomo Variável v6 </h1>
     
     <div class="controls">
         <label>BPM Inicial: </label>
-        <input type="number" id="bpm1" value="60" min="20" max="300">
+        <input type="number" id="bpm1" value="67" min="20" max="300">
     </div>
     
     <div class="controls">
         <label>BPM Final: </label>
-        <input type="number" id="bpm2" value="120" min="20" max="300">
+        <input type="number" id="bpm2" value="77" min="20" max="300">
     </div>
     
     <div class="controls">
@@ -39,8 +39,8 @@
     </div>
     
     <div class="controls">
-        <label>Tempo por Passo (segundos): </label>
-        <input type="number" id="stepTime" value="5" min="1" max="60">
+        <label>Compassos por Passo: </label>
+        <input type="number" id="barsPerStep" value="4" min="1" max="20">
     </div>
     
     <div class="controls">
@@ -114,7 +114,8 @@
             const bpm1 = parseInt(document.getElementById('bpm1').value);
             const bpm2 = parseInt(document.getElementById('bpm2').value);
             const steps = parseInt(document.getElementById('steps').value);
-            const stepTime = parseInt(document.getElementById('stepTime').value) * 1000;
+            const barsPerStep = parseInt(document.getElementById('barsPerStep').value);
+            const timeSignature = parseInt(document.getElementById('timeSignature').value);
 
             isPlaying = true;
             currentStep = 0;
@@ -130,15 +131,21 @@
                 document.getElementById('currentBPM').textContent = Math.round(currentBPM);
 
                 if (currentStep === 0) {
-                    nextBeatTime = audioContext.currentTime; // Reseta o tempo na transição
+                    nextBeatTime = audioContext.currentTime;
                 }
+
+                // Calcula o tempo de um compasso em segundos
+                const beatsPerBar = timeSignature;
+                const secondsPerBeat = 60 / currentBPM;
+                const secondsPerBar = beatsPerBar * secondsPerBeat;
+                const stepDuration = barsPerStep * secondsPerBar * 1000; // em milissegundos
 
                 setTimeout(() => {
                     if (isPlaying) {
                         currentStep++;
                         updateMetronome();
                     }
-                }, stepTime);
+                }, stepDuration);
             }
 
             schedulerId = requestAnimationFrame(scheduler);
