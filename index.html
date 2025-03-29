@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metrônomo com Transição Suave</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .metronome {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        input {
+            width: 80px;
+            padding: 5px;
+            font-size: 16px;
+            margin: 5px;
+        }
+        #beat {
+            width: 50px;
+            height: 50px;
+            margin: 10px auto;
+            transition: background-color 0.1s; /* Suaviza a mudança de cor */
+        }
+    </style>
+</head>
+<body>
+    <div class="metronome">
+        <h1>Metrônomo</h1>
+        <label for="bpm1">BPM 1:</label>
+        <input type="number" id="bpm1" value="120" min="20" max="300">
+        <br>
+        <label for="bpm2">BPM 2:</label>
+        <input type="number" id="bpm2" value="80" min="20" max="300">
+        <br>
+        <button onclick="startMetronome()">Iniciar</button>
+        <button onclick="stopMetronome()">Parar</button>
+        <div id="beat" style="background: grey;"></div>
+    </div>
+
+    <script>
+        let isPlaying = false;
+        let intervalId = null;
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let currentInterval = 0;
+        let targetInterval1, targetInterval2;
+        const transitionSteps = 5; // Número de batidas para transição suave
+        let stepCount = 0;
+        let transitioningToBPM2 = false;
+
+        function playClick() {
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'square';
+            oscillator.frequency.value = 1000;
+            oscillator.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.05);
+
+            const beat = document.getElementById('beat');
+            beat.style.background = transitioningToBPM2 ? 'blue' : 'red'; // Vermelho para BPM1, Azul para BPM2
+            setTimeout(() => beat.style.background = 'grey', 50);
+        }
+
+        function startMetronome() {
+            if (isPlaying) return;
+            isPlaying = true;
+            const bpm1 = parseInt(document.getElementById('bpm1').value);
+            const bpm2 = parseInt(document.getElementById('bpm2').value);
+            targetInterval1 = 60000 / bpm1; // Intervalo do BPM1
+            targetInterval2 = 60000 / bpm2; // Intervalo do BPM2
+            currentInterval = targetInterval1; // Começa no BPM1
+            transitioningToBPM2 = false;
+            stepCount = 0;
+            scheduleNextBeat();
+        }
+
+        function scheduleNextBeat() {
+            if (!isPlaying) return;
+
+            playClick();
+
+            // Calcula a transição suave
+            if (stepCount < transitionSteps) {
+                const diff = (targetInterval2 - targetInterval1) / transitionSteps;
+                currentInterval = transitioningToBPM2 
+                    ? targetInterval1 + diff * (transitionSteps - stepCount) 
+                    : targetInterval1 + diff * stepCount;
+                stepCount++;
+            } else {
+                // Finaliza a transição e alterna o alvo
+                currentInterval = transitioningToBPM2 ? targetInterval2 : targetInterval1;
+                transitioningToBPM2 = !transitioningToBPM2;
+                stepCount = 0; // Reinicia para a próxima transição
+            }
+
+            intervalId = setTimeout(scheduleNextBeat, currentInterval);
+        }
+
+        function stopMetronome() {
+            if (!isPlaying) return;
+            clearTimeout(intervalId);
+            isPlaying = false;
+        }
+    </script>
+</body>
+</html>
